@@ -4,6 +4,21 @@ All notable changes to the `vaultpilot-preflight` skill are documented here.
 The skill is versioned separately from `vaultpilot-mcp` so an MCP compromise
 cannot silently alter the skill's content.
 
+## 0.1.3 — remove Fast-retry mode section (coordinated with vaultpilot-mcp 0.6.1)
+
+- Remove the **Fast-retry mode** section added in 0.1.2. Its consumer —
+  the `FAST-RETRY MODE` agent-task block emitted by `vaultpilot-mcp` on
+  MarginFi borrow/repay retries — was reverted upstream in vaultpilot-mcp
+  PR #136 (the abridged-checks path didn't measurably reduce wall time
+  and added UX divergence between the full-path and retry-path CHECKS
+  output). With the MCP no longer emitting the block, the skill's
+  buy-in rules were dormant; removing them eliminates misleading
+  guidance that references a code path that no longer exists.
+- **Requires vaultpilot-mcp ≥ 0.6.1.** On MCP 0.6.0 (which still
+  carries the v0.1.2 pin) this skill fails the SHA-256 integrity check
+  and halts signing flows — align versions or stay on skill 0.1.2
+  until the matching MCP release ships.
+
 ## 0.1.2 — Fast-retry mode for MarginFi borrow/repay (coordinated with vaultpilot-mcp 0.5.4)
 
 - Add **Fast-retry mode** section documenting the skill's buy-in rules for
