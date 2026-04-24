@@ -40,6 +40,51 @@ git pull --ff-only
 Diff the new `SKILL.md` against the current one before pulling if you
 want to audit the change. See `CHANGELOG.md` for per-version notes.
 
+## Use with other agents (non-Claude clients)
+
+The **content** of this skill (the invariants in `SKILL.md`) is agent-agnostic
+— it's plain prose about how to verify bytes before signing. The **mechanism**
+(YAML frontmatter + `~/.claude/skills/<name>/SKILL.md` layout) is
+[Anthropic's Agent Skills format](https://www.anthropic.com/news/agent-skills),
+honored by Claude Code, Claude Desktop, the Claude Agent SDK, and Claude's API.
+Cursor / Cline / Windsurf / Continue / Aider don't scan that path.
+
+To use the invariants with a non-Claude MCP client, copy the body of
+[`SKILL.md`](./SKILL.md) (everything after the `---` frontmatter) into
+whatever that tool uses for persistent system-prompt rules:
+
+| Agent / IDE   | Where to paste the invariants                                      |
+|---------------|--------------------------------------------------------------------|
+| Cursor        | `.cursorrules` at the project root, or **User Rules** in settings  |
+| Cline         | `.clinerules` at the project root                                  |
+| Windsurf      | `.windsurfrules` at the project root                               |
+| Continue      | `systemMessage` in the Continue config                             |
+| Aider         | `chat-language` / system prompt in `.aider.conf.yml`               |
+| Generic MCP   | Your client's system prompt / persistent instructions              |
+
+`vaultpilot-mcp`'s per-call `CHECKS PERFORMED` / `VERIFY-BEFORE-SIGNING` blocks
+arrive inside tool responses regardless of client, so you still get the
+server-emitted layer. This skill's role is the *static*, server-independent
+layer — it has to be loaded into the agent's context by some mechanism your
+client actually supports.
+
+### Silencing the MCP's missing-skill warning
+
+`vaultpilot-mcp` checks for a file at `~/.claude/skills/vaultpilot-preflight/
+SKILL.md` and prefixes every `prepare_*` / `preview_*` response with a warning
+when it's absent. On non-Claude clients that warning fires even if you loaded
+the invariants via `.cursorrules` etc. To suppress it, set:
+
+```bash
+export VAULTPILOT_SKILL_MARKER_PATH=/path/to/any/existing/file
+```
+
+Only do this **after** you've actually loaded the invariants into your
+agent's context — otherwise you're silencing a useful signal. A reasonable
+pattern is to point the env var at your non-Claude rules file itself (e.g.
+`VAULTPILOT_SKILL_MARKER_PATH=$PWD/.cursorrules`) so the marker's existence
+tracks the rules' existence.
+
 ## Honest limits
 
 - The skill instructs the agent to run local checks. It does not
