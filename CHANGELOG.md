@@ -4,7 +4,7 @@ All notable changes to the `vaultpilot-preflight` skill are documented here.
 The skill is versioned separately from `vaultpilot-mcp` so an MCP compromise
 cannot silently alter the skill's content.
 
-## 0.2.0 — integrity pin (coordinated with vaultpilot-mcp)
+## 0.1.1 — integrity pin (coordinated with vaultpilot-mcp 0.5.3)
 
 - Added an in-file integrity sentinel
   (`VAULTPILOT_PREFLIGHT_INTEGRITY_v1_7780bfeee9a49f01`) as an HTML comment

@@ -42,7 +42,7 @@ want to audit the change. See `CHANGELOG.md` for per-version notes.
 
 ## Integrity pin (coordinated with `vaultpilot-mcp`)
 
-Starting with 0.2.0, `SKILL.md` carries an invisible integrity sentinel
+Starting with 0.1.1, `SKILL.md` carries an invisible integrity sentinel
 near the top and `vaultpilot-mcp` pins the expected SHA-256 of this file
 in its server source code. On every signing flow, the agent is instructed
 to:
