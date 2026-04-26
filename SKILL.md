@@ -3,7 +3,7 @@ name: vaultpilot-preflight
 description: Use whenever the user's request involves vaultpilot-mcp tools (prepare_*, preview_send, preview_solana_send, send_transaction, pair_ledger_*). Enforces agent-side integrity checks that do not depend on MCP-emitted instruction text, so a compromised MCP omitting its own CHECKS PERFORMED directives still gets caught.
 ---
 
-<!-- VAULTPILOT_PREFLIGHT_INTEGRITY_v2_43b1d2403a0c2a94 -->
+<!-- VAULTPILOT_PREFLIGHT_INTEGRITY_v3_2d3b876b38550fe5 -->
 
 # VaultPilot preflight — agent-side integrity invariants
 
@@ -160,6 +160,62 @@ chain ID against BOTH locations catches a single-side tamper.
 When a new bridge gets added to the MCP-side allowlist, add it here
 in the same change set and bump this file's integrity sentinel
 (coordinated with the MCP's pin update).
+
+### 7. Address book — surface label decorations and tamper warnings
+
+The MCP ships a per-chain signed address book (`add_contact` /
+`remove_contact` / `list_contacts` / `verify_contacts`). When the
+user's `prepare_*` flow has a recipient (`to`) arg that resolves
+through the contacts module, the verification block carries one of
+these source-specific suffixes:
+
+| Suffix on the recipient line | What it means |
+|---|---|
+| `(contact: <label> — verified)` | The user passed a label; the contacts blob signature verified; the resolved address came from the saved entry. |
+| `(also saved as: <label>)` | The user passed a literal address that REVERSE-DECORATED to a saved label — defense-in-depth confirmation that the address is one the user has interacted with before. |
+| `(resolved via ENS, also saved as: <label>)` | ENS resolution + reverse-decoration matched. |
+| `(unknown — verify on-device)` | Contacts file is fine but the destination isn't saved. Standard verification still applies. |
+| `⚠ contacts file failed verification — recipient label not checked` | **TAMPER SIGNAL.** The contacts file is on disk but its signature didn't verify (entry swapped, version rolled back, or anchor mismatch). |
+
+**Agent-side rules** (apply on every prepare flow that takes a `to` arg):
+
+1. **When the suffix is `(contact: <label> — verified)`** — quote the
+   label prominently to the user in your reply, alongside the
+   resolved address. Don't bury it; the label is what the user
+   semantically asked for.
+2. **When the verification block contains the `⚠ contacts file
+   failed verification` warning** — LEAD your reply with `⚠
+   CONTACTS-FILE TAMPER WARNING — DO NOT SIGN UNTIL YOU VERIFY THE
+   RECIPIENT.` BEFORE the standard CHECKS PERFORMED block. The send
+   has NOT been blocked (the user passed a literal address; the
+   resolver scoped the abort), but the contacts integrity layer is
+   compromised. Refuse to call `send_transaction` until the user
+   confirms out-of-band that the recipient address is correct (e.g.
+   read it back from a known-good source).
+3. **Sign-message vs sign-transaction discipline.** As of v1.0 of
+   the address book, the WC namespace exposes `personal_sign` —
+   needed by `add_contact`/`remove_contact` for EIP-191 signing of
+   the contacts blob. The ONLY VaultPilot tools that legitimately
+   trigger an on-device sign-MESSAGE prompt are the contacts CRUD
+   tools (`add_contact`, `remove_contact`). If the user is in a
+   `prepare_*` / `send_transaction` flow and the device shows a
+   sign-message prompt instead of a sign-transaction prompt, that
+   is anomalous — refuse on-device and stop. The legitimate per-
+   prepare on-device prompt is always a transaction (clear-sign or
+   blind-sign with a hash); never a free-form message.
+4. **Cross-check after `add_contact`.** Right after a successful
+   `add_contact`, call `verify_contacts({ chain })` once and
+   confirm `results[0].ok === true`. This catches the case where
+   `add_contact` returned but the persisted blob doesn't actually
+   verify — independent of the MCP's own claim of success.
+
+The contacts blob signing primitives are NOT individually exposed as
+MCP tools — only the high-level `add_*` / `remove_*` / `list_*` /
+`verify_*` surface, each with a hardwired `VaultPilot-contact-v1:`
+domain prefix. A compromised MCP can still bypass the wrapper and
+call WC `personal_sign` directly (path-C trade-off, documented in
+`SECURITY.md`'s "Address book — EVM signing trade-off"); the
+device-screen message text is the user-side defense for that case.
 
 ---
 
