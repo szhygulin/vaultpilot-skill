@@ -42,6 +42,34 @@ git pull --ff-only
 Diff the new `SKILL.md` against the current one before pulling if you
 want to audit the change. See `CHANGELOG.md` for per-version notes.
 
+## Optional: install the Solana verifier bin
+
+This repo ships `vaultpilot-verify-solana-msg` — a Node CLI that
+recomputes the Ledger Solana app's blind-sign Message Hash
+(`base58(sha256(messageBytes))`) and decodes the message's instructions.
+`vaultpilot-mcp` detects the bin on PATH at run time and emits
+`vaultpilot-verify-solana-msg '<msgB64>'` in its agent-task block
+instead of a 30-line inline `node -e` script. The named-bin form lets
+you allowlist `Bash(vaultpilot-verify-solana-msg:*)` per-project
+without granting the broader `Bash(node:*)`.
+
+Without the bin, the inline `node -e` form is what the agent must
+approve on every Solana send.
+
+```bash
+cd ~/.claude/skills/vaultpilot-preflight
+npm install
+mkdir -p ~/.local/bin
+ln -sf "$PWD/bin/vaultpilot-verify-solana-msg" ~/.local/bin/vaultpilot-verify-solana-msg
+```
+
+Then ensure `~/.local/bin` is on your `PATH` (most distributions add it
+automatically; otherwise add `export PATH="$HOME/.local/bin:$PATH"` to
+your shell rc). Verify with `which vaultpilot-verify-solana-msg`.
+
+`SOLANA_RPC_URL` overrides the v0-message ALT-fetch RPC (defaults to
+mainnet-beta).
+
 ## Integrity pin (coordinated with `vaultpilot-mcp`)
 
 Starting with 0.1.1, `SKILL.md` carries an invisible integrity sentinel

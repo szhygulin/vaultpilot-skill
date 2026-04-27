@@ -1,0 +1,20 @@
+{
+  "name": "vaultpilot-security-skill",
+  "version": "0.4.2",
+  "private": true,
+  "description": "Agent-side integrity invariants for vaultpilot-mcp transactions. Ships the optional vaultpilot-verify-solana-msg bin used by the Solana CHECK 1 + CHECK 2 integrity prompt.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/szhygulin/vaultpilot-security-skill.git"
+  },
+  "bin": {
+    "vaultpilot-verify-solana-msg": "./bin/vaultpilot-verify-solana-msg"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@solana/web3.js": "^1.95.0"
+  }
+}

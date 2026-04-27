@@ -1,0 +1,101 @@
+#!/usr/bin/env node
+// vaultpilot-verify-solana-msg <messageBase64>
+//
+// Recomputes the Ledger Solana app's blind-sign Message Hash
+// (base58(sha256(messageBytes))) and decodes the message's instructions.
+// Used by the agent to run CHECK 1 (instruction structure) + CHECK 2
+// (pair-consistency hash) in a single named Bash call instead of an
+// inline node -e block. Faithful port of `combinedCheckScript` in
+// vaultpilot-mcp/src/signing/render-verification.ts.
+//
+// Output (stdout):
+//   {
+//     "ledgerHash": "<base58(sha256(messageBytes))>",
+//     "instructions": [
+//       { "programId": "...", "accounts": ["...", "..."], "dataHex": "..." },
+//       ...
+//     ]
+//   }
+//
+// Env: SOLANA_RPC_URL (optional) — used for v0 messages to fetch ALT
+//      accounts. Defaults to https://api.mainnet-beta.solana.com.
+
+"use strict";
+
+const { Message, VersionedMessage, PublicKey, Connection } = require("@solana/web3.js");
+const { createHash } = require("crypto");
+
+const B58_ALPHABET =
+  "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
+function b58DecodeToHex(s) {
+  if (!s.length) return "";
+  let n = 0n;
+  for (const c of s) {
+    const i = B58_ALPHABET.indexOf(c);
+    if (i < 0) throw new Error("invalid base58 char: " + c);
+    n = n * 58n + BigInt(i);
+  }
+  let z = 0;
+  while (z < s.length && s[z] === "1") z++;
+  const h = n.toString(16);
+  return "00".repeat(z) + (h.length % 2 ? "0" + h : h);
+}
+
+async function main() {
+  const m = process.argv[2];
+  if (!m) {
+    process.stderr.write(
+      "Usage: vaultpilot-verify-solana-msg <messageBase64>\n",
+    );
+    process.exit(64);
+  }
+
+  const buf = Buffer.from(m, "base64");
+  const ledgerHash = new PublicKey(
+    createHash("sha256").update(buf).digest(),
+  ).toBase58();
+
+  let instructions;
+  if (buf[0] & 0x80) {
+    const msg = VersionedMessage.deserialize(buf);
+    const conn = new Connection(
+      process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com",
+    );
+    const alts = [];
+    for (const lookup of msg.addressTableLookups) {
+      const res = await conn.getAddressLookupTable(lookup.accountKey);
+      if (!res.value) {
+        throw new Error(
+          "ALT not found on chain: " + lookup.accountKey.toBase58(),
+        );
+      }
+      alts.push(res.value);
+    }
+    const keys = msg
+      .getAccountKeys({ addressLookupTableAccounts: alts })
+      .keySegments()
+      .flat();
+    instructions = msg.compiledInstructions.map((ix) => ({
+      programId: keys[ix.programIdIndex].toBase58(),
+      accounts: ix.accountKeyIndexes.map((i) => keys[i].toBase58()),
+      dataHex: Buffer.from(ix.data).toString("hex"),
+    }));
+  } else {
+    const msg = Message.from(buf);
+    instructions = msg.instructions.map((ix) => ({
+      programId: msg.accountKeys[ix.programIdIndex].toBase58(),
+      accounts: ix.accounts.map((i) => msg.accountKeys[i].toBase58()),
+      dataHex: b58DecodeToHex(ix.data),
+    }));
+  }
+
+  process.stdout.write(
+    JSON.stringify({ ledgerHash, instructions }, null, 2) + "\n",
+  );
+}
+
+main().catch((err) => {
+  process.stderr.write((err && err.message ? err.message : String(err)) + "\n");
+  process.exit(1);
+});

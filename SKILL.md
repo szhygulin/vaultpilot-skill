@@ -159,7 +159,17 @@ independently decoded the signable bytes that the MCP returned in the last
 - **Solana**: base64-decode `messageBase64` and use
   `@solana/web3.js` `Message.from()` to enumerate instructions. For each
   instruction, confirm `programId`, account ordering, and the tag byte
-  + args match the action the user asked for.
+  + args match the action the user asked for. **Preferred tooling**:
+  this skill ships `vaultpilot-verify-solana-msg` (see README install).
+  When the bin is on PATH, the MCP's agent-task block invokes it as
+  `vaultpilot-verify-solana-msg <messageBase64>` — a single named Bash
+  call that outputs JSON with both decoded `instructions` (CHECK 1)
+  and `ledgerHash` (CHECK 2). Before running it, surface the MCP-
+  rendered labeling line to the user so the approval prompt is
+  contextualized (the MCP includes it in its agent-task block; if a
+  compromised MCP omits the block entirely, render an equivalent
+  one-line description yourself). Falls back to the inline `node -e`
+  form when the bin is absent.
 - **TRON**: decode `rawDataHex` against the stated contract type.
 
 ### 2. Recompute the on-device hash and match it

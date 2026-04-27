@@ -4,6 +4,38 @@ All notable changes to the `vaultpilot-preflight` skill are documented here.
 The skill is versioned separately from `vaultpilot-mcp` so an MCP compromise
 cannot silently alter the skill's content.
 
+## 0.4.2 — `vaultpilot-verify-solana-msg` bin (closes #15)
+
+Ships an optional Node CLI, `vaultpilot-verify-solana-msg`, that
+recomputes the Ledger Solana Message Hash (`base58(sha256(messageBytes))`)
+and decodes a message's instructions. Faithful port of the
+`combinedCheckScript` in `vaultpilot-mcp`'s `render-verification.ts`.
+
+When the bin is on PATH, `vaultpilot-mcp` (next coordinated release)
+will emit `vaultpilot-verify-solana-msg '<msgB64>'` in its Solana
+agent-task block instead of a 30-line inline `node -e` script.
+Allows users to allowlist `Bash(vaultpilot-verify-solana-msg:*)`
+per-project rather than granting the broader `Bash(node:*)`.
+Reverses the security regression of approving an opaque inline
+script on every Solana send (vaultpilot-mcp #396).
+
+- Adds `bin/vaultpilot-verify-solana-msg`, `package.json` (deps:
+  `@solana/web3.js`).
+- README documents `npm install` + symlink-into-`~/.local/bin/` step.
+- `SKILL.md` Invariant #1 Solana branch now names the bin as the
+  preferred CHECK 1 + CHECK 2 verifier and instructs the agent to
+  surface the MCP-rendered labeling line before invoking it.
+- New SKILL.md SHA-256:
+  `763872eb5cbebc310e21d15d0c3dbec112d72e4267203170b6e4f914d8952c48`.
+- Sentinel unchanged at
+  `VAULTPILOT_PREFLIGHT_INTEGRITY_v5_9c4a2e7f3d816b50` — text-only
+  addition, no protocol change.
+- **Requires `vaultpilot-mcp` with the matching pin bump.**
+  Coordinated MCP-side PR will (a) update `EXPECTED_SKILL_SHA256` to
+  the new value and (b) detect the bin on PATH and emit the named-bin
+  form in `renderSolanaAgentTaskBlock`. Until both ship, signing
+  flows halt with `vaultpilot-preflight skill integrity check FAILED`.
+
 ## 0.4.1 — rename repo: `vaultpilot-skill` → `vaultpilot-security-skill`
 
 GitHub repository renamed for clarity. GitHub provides automatic
