@@ -17,7 +17,7 @@ whether the MCP asked you to run them** in the current response.
 
 The MCP cannot overwrite this file. It lives under `~/.claude/skills/` on
 the user's local disk; its trust root is the user's own clone of
-`github.com/<OWNER>/vaultpilot-skill`, not the MCP server.
+`github.com/szhygulin/vaultpilot-skill`, not the MCP server.
 
 ---
 
