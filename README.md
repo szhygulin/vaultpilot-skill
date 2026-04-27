@@ -23,7 +23,7 @@ clone of this repository.
 ## Install
 
 ```bash
-git clone https://github.com/<OWNER>/vaultpilot-skill.git \
+git clone https://github.com/szhygulin/vaultpilot-skill.git \
   ~/.claude/skills/vaultpilot-preflight
 ```
 
