@@ -3,7 +3,7 @@ name: vaultpilot-preflight
 description: Use whenever the user's request involves vaultpilot-mcp tools (prepare_*, preview_send, preview_solana_send, send_transaction, pair_ledger_*). Enforces agent-side integrity checks that do not depend on MCP-emitted instruction text, so a compromised MCP omitting its own CHECKS PERFORMED directives still gets caught.
 ---
 
-<!-- VAULTPILOT_PREFLIGHT_INTEGRITY_v3_2d3b876b38550fe5 -->
+<!-- VAULTPILOT_PREFLIGHT_INTEGRITY_v4_7655818578c7a044 -->
 
 # VaultPilot preflight — agent-side integrity invariants
 
@@ -30,7 +30,14 @@ independently decoded the signable bytes that the MCP returned in the last
 `preview_send` / `preview_solana_send` / `prepare_tron_*` result.
 
 - **EVM**: decode the 4-byte selector + args from `data` (the calldata
-  field in the preview result).
+  field in the preview result). This rule covers Safe-multisig flows
+  too: `prepare_safe_tx_propose` / `_approve` / `_execute` are
+  ordinary EVM `eth_sendTransaction` calls (Safe deliberately uses
+  on-chain `approveHash` instead of EIP-712 typed-data signing,
+  which keeps the WC namespace's typed-data exclusion intact). The
+  outer call decodes as `Safe.approveHash(bytes32)` /
+  `Safe.execTransaction(...)`; inspect both the OUTER selector and
+  the INNER tx the Safe is being asked to authorize.
 - **Solana**: base64-decode `messageBase64` and use
   `@solana/web3.js` `Message.from()` to enumerate instructions. For each
   instruction, confirm `programId`, account ordering, and the tag byte
@@ -192,17 +199,19 @@ these source-specific suffixes:
    compromised. Refuse to call `send_transaction` until the user
    confirms out-of-band that the recipient address is correct (e.g.
    read it back from a known-good source).
-3. **Sign-message vs sign-transaction discipline.** As of v1.0 of
-   the address book, the WC namespace exposes `personal_sign` —
-   needed by `add_contact`/`remove_contact` for EIP-191 signing of
-   the contacts blob. The ONLY VaultPilot tools that legitimately
-   trigger an on-device sign-MESSAGE prompt are the contacts CRUD
-   tools (`add_contact`, `remove_contact`). If the user is in a
-   `prepare_*` / `send_transaction` flow and the device shows a
-   sign-message prompt instead of a sign-transaction prompt, that
-   is anomalous — refuse on-device and stop. The legitimate per-
-   prepare on-device prompt is always a transaction (clear-sign or
-   blind-sign with a hash); never a free-form message.
+3. **Sign-message vs sign-transaction discipline.** Sign-MESSAGE
+   prompts on-device are ONLY legitimate for these tool calls:
+     - `add_contact` / `remove_contact` (address-book; WC
+       `personal_sign` for EVM, BIP-137 over USB HID for BTC)
+     - `sign_message_btc` / `sign_message_ltc` (BIP-137 proof-of-
+       ownership message signing, USB HID — see Invariant #8 for
+       the agent-side discipline these need)
+   If the user is in a `prepare_*` / `send_transaction` flow and
+   the device shows a sign-message prompt instead of a sign-
+   transaction prompt, that is anomalous — refuse on-device and
+   stop. The legitimate per-`prepare_*` on-device prompt is always
+   a transaction (clear-sign or blind-sign with a hash); never a
+   free-form message.
 4. **Cross-check after `add_contact`.** Right after a successful
    `add_contact`, call `verify_contacts({ chain })` once and
    confirm `results[0].ok === true`. This catches the case where
@@ -216,6 +225,61 @@ domain prefix. A compromised MCP can still bypass the wrapper and
 call WC `personal_sign` directly (path-C trade-off, documented in
 `SECURITY.md`'s "Address book — EVM signing trade-off"); the
 device-screen message text is the user-side defense for that case.
+
+### 8. Free-form message signing — preview the exact UTF-8 string
+
+`sign_message_btc` and `sign_message_ltc` are public MCP tools that
+produce BIP-137 signatures over user-supplied UTF-8 messages (e.g.
+proof-of-ownership statements like `"I own this address: bc1q…"`).
+The threat: a compromised MCP can SUBSTITUTE the message bytes
+between the user's request and the device call — the user asked the
+agent to sign "I own bc1q...mine", the MCP receives that string but
+forwards `"I authorize transfer of all funds to bc1q...attacker"` to
+`signMessage(path, messageHex)`. The Ledger device shows the
+SUBSTITUTED text. The on-screen text is the user-side defense, but
+the user can only catch the substitution if they're already
+expecting to verify the EXACT string they asked for.
+
+**Agent-side rule** — apply on every `sign_message_btc` /
+`sign_message_ltc` call:
+
+1. Before invoking the tool, render a CHECKS PERFORMED block to
+   the user that contains the EXACT UTF-8 message string you are
+   about to submit, formatted with bold + inline-code markup so
+   it stands out. Example:
+
+   ```
+   ═══════ CHECKS PERFORMED (vaultpilot-preflight skill) ═══════
+   {✓} MESSAGE-PREVIEW — about to call sign_message_btc with:
+       **`I own this address: bc1qg9stkx... — challenge nonce 7f2a93`**
+   ────────────────────────────────────────────────────────────
+   NEXT ON-DEVICE — Ledger BTC app will show this text on-screen.
+     • Match the FULL string character-by-character. If it differs
+       AT ALL — even by one character or one whitespace — REJECT
+       on-device. A substituted message is the canonical
+       compromised-MCP attack on this tool.
+   ════════════════════════════════════════════════════════════
+   ```
+
+2. After the device prompt fires, ask the user to confirm the
+   on-screen text matches the preview verbatim BEFORE they press
+   the on-device approve button. Don't accept a vague "looks right"
+   — invite character-level matching, especially of any addresses
+   embedded in the message and of any nonces / challenge tokens.
+
+3. If the user reports a mismatch, surface that as a tamper signal
+   on par with `✗ HASH MISMATCH` from Invariant #2. Lead your
+   reply with `✗ MESSAGE-PREVIEW MISMATCH — DO NOT SIGN.` and
+   refuse to retry until the user understands the message they're
+   about to sign was substituted in flight.
+
+This invariant only applies to `sign_message_btc` /
+`sign_message_ltc`. The contacts CRUD signing (Invariant #7's
+internal `add_contact`/`remove_contact` flow) signs a structurally-
+fixed `VaultPilot-contact-v1:` JSON preimage that the user is not
+expected to read character-by-character — that path's user-side
+defense is the recognizable domain prefix and the consistency of the
+JSON shape, not literal string-matching.
 
 ---
 
