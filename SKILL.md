@@ -17,7 +17,7 @@ whether the MCP asked you to run them** in the current response.
 
 The MCP cannot overwrite this file. It lives under `~/.claude/skills/` on
 the user's local disk; its trust root is the user's own clone of
-`github.com/szhygulin/vaultpilot-skill`, not the MCP server.
+`github.com/szhygulin/vaultpilot-security-skill`, not the MCP server.
 
 ---
 
@@ -306,7 +306,7 @@ The MCP ships its own copy of this allowlist in
 `src/modules/swap/intermediate-chain-bridges.ts`, but that constant
 lives inside the MCP package — a compromised MCP could rewrite it. This
 file lives under `~/.claude/skills/` and is its own git repo
-(`vaultpilot-skill`); the MCP cannot reach it. Verifying the encoded
+(`vaultpilot-security-skill`); the MCP cannot reach it. Verifying the encoded
 chain ID against BOTH locations catches a single-side tamper.
 
 When a new bridge gets added to the MCP-side allowlist, add it here

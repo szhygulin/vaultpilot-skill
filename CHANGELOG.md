@@ -4,6 +4,24 @@ All notable changes to the `vaultpilot-preflight` skill are documented here.
 The skill is versioned separately from `vaultpilot-mcp` so an MCP compromise
 cannot silently alter the skill's content.
 
+## 0.4.1 — rename repo: `vaultpilot-skill` → `vaultpilot-security-skill`
+
+GitHub repository renamed for clarity. GitHub provides automatic
+redirects for the old URL, so existing clones continue to work, but
+the in-file references inside `SKILL.md` (and the README / earlier
+CHANGELOG entry) are updated to the new canonical URL. No invariants
+or behavior change.
+
+- New SKILL.md SHA-256 (URL change shifts the hash):
+  `e48d5c0cdeb85be7b3a431a678d1cf2ff40aa52a69259567bb575779af75007a`.
+- Sentinel unchanged at
+  `VAULTPILOT_PREFLIGHT_INTEGRITY_v5_9c4a2e7f3d816b50` — same v5 release.
+- **Requires `vaultpilot-mcp` ≥ 0.10.x with the matching pin bump.**
+  Coordinated MCP-side PR updates `Expected SHA-256` to the new value
+  AND the URL refs (`SKILL_REPO_URL`, install instructions, SECURITY.md
+  cross-references). Until both ship, signing flows halt with
+  `vaultpilot-preflight skill integrity check FAILED`.
+
 ## 0.4.0 — close documented agent-side gaps from `vaultpilot-mcp`'s threat model
 
 Adds four new invariants (#9–#12) and tightens two existing ones (#2, #4),
@@ -15,7 +33,7 @@ disabled the defense; v0.4.0 makes the defense survive that omission.
 - **Bumps integrity sentinel to**
   `VAULTPILOT_PREFLIGHT_INTEGRITY_v5_9c4a2e7f3d816b50`.
 - **Adds Step 0 — Integrity self-check (MANDATORY, runs FIRST).**
-  Closes [#10](https://github.com/szhygulin/vaultpilot-skill/issues/10).
+  Closes [#10](https://github.com/szhygulin/vaultpilot-security-skill/issues/10).
   The previous `0.1.x`–`0.3.x` skills relied on the MCP-emitted
   `PREFLIGHT SKILL INTEGRITY PIN` block to instruct the agent to run
   `sha256sum` and compare against the pin — but the skill itself had no

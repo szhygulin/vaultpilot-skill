@@ -23,7 +23,7 @@ clone of this repository.
 ## Install
 
 ```bash
-git clone https://github.com/szhygulin/vaultpilot-skill.git \
+git clone https://github.com/szhygulin/vaultpilot-security-skill.git \
   ~/.claude/skills/vaultpilot-preflight
 ```
 
@@ -78,7 +78,7 @@ change with it. The coordinated release:
    `Expected SHA-256` value. For substantive protocol changes, also bump
    the sentinel version (`v1` → `v2`) in both `SKILL.md` and the three
    sentinel fragments in `src/index.ts`.
-4. Merge the skill PR first, tag a new `vaultpilot-skill` release, then
+4. Merge the skill PR first, tag a new `vaultpilot-security-skill` release, then
    merge + publish the matching `vaultpilot-mcp` release.
 5. Bump `CHANGELOG.md` here with the new sentinel and the minimum
    required `vaultpilot-mcp` version.
