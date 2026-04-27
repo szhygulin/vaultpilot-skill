@@ -21,6 +21,124 @@ the user's local disk; its trust root is the user's own clone of
 
 ---
 
+## Step 0 — Integrity self-check (MANDATORY, runs FIRST on every signing flow)
+
+Before running ANY of the numbered invariants below, the agent MUST
+verify this skill's own integrity against the MCP's `PREFLIGHT SKILL
+INTEGRITY PIN` block. **This step is not advisory, not optional, and
+not skippable.** Silent skipping is indistinguishable from a real
+tamper — which is precisely the attack the integrity pin exists to
+catch. A passing Step 0 is the *precondition* for trusting any other
+invariant in this file; if Step 0 fails or cannot be completed, halt
+before forwarding the prepare receipt to the user, before any
+on-device prompt fires, before any signing happens.
+
+The check has three parts. ALL three must pass before proceeding to
+Invariant #1.
+
+### Part 1 — Confirm the MCP emitted the pin block
+
+`vaultpilot-mcp` emits a `PREFLIGHT SKILL INTEGRITY PIN` block in the
+server-level `instructions` field. From it, extract:
+
+- `Expected SHA-256` — a 64-hex-char value on a line by itself.
+- The assembled sentinel = `<fragment A> + <fragment B> + <fragment C>`,
+  where the MCP lists the three fragments separately so a naïve scan
+  of the MCP's prose can't spoof a full match. Concatenate the three
+  exactly (no separators, no whitespace) into a single string.
+
+If the `PREFLIGHT SKILL INTEGRITY PIN` block is **missing** from the
+MCP's instructions, or `Expected SHA-256` is missing / blank /
+non-hex / wrong length, HALT. Lead your reply with:
+
+`✗ MCP PIN BLOCK MISSING — DO NOT SIGN.`
+
+Tell the user verbatim:
+
+> The MCP did not emit a usable `PREFLIGHT SKILL INTEGRITY PIN`
+> block. This may indicate the server is out of date,
+> misconfigured, or compromised. Without the pinned hash I cannot
+> verify this skill's integrity — and I will not sign without
+> verifying.
+
+### Part 2 — Recompute the local hash and compare
+
+Run, locally:
+
+```
+sha256sum ~/.claude/skills/vaultpilot-preflight/SKILL.md
+```
+
+(Windows: `Get-FileHash -Algorithm SHA256 …`. macOS without coreutils:
+`shasum -a 256 …` or `openssl dgst -sha256 …`.)
+
+Compare the FIRST 64 HEX CHARS of stdout — case-insensitive — to
+`Expected SHA-256` from Part 1. If they differ — even by one
+character — HALT. Lead your reply with:
+
+`✗ vaultpilot-preflight skill integrity check FAILED — DO NOT SIGN.`
+
+Surface BOTH hashes side-by-side, formatted with bold + inline-code
+markup so the user can visually diff them:
+
+```
+Local SKILL.md SHA-256 : **`<local-hash>`**
+MCP-pinned SHA-256     : **`<expected-hash>`**
+```
+
+Then tell the user verbatim:
+
+> The vaultpilot-preflight skill on your local disk does not match
+> the version this MCP expects. Possible causes: (a) the skill is
+> stale — refresh with `cd ~/.claude/skills/vaultpilot-preflight &&
+> git pull --ff-only`; (b) the MCP is stale — `npm update -g
+> vaultpilot-mcp` or matching install path; (c) one side has been
+> tampered with. Until both align, I will not sign any transaction.
+> Do not bypass this alarm; it is the canonical integrity-pin
+> mismatch that the pin exists to catch.
+
+### Part 3 — Verify the sentinel is in the skill content
+
+Confirm that the assembled sentinel string from Part 1 appears in
+**the content the `Skill` tool returned for `vaultpilot-preflight`**
+— NOT in the MCP's own instructions text. (The MCP's instructions
+list the fragments separately, so a search for the assembled string
+in the MCP prose finds nothing; finding the assembled string in the
+skill content proves you actually loaded THIS skill, not a different
+one collisively registered under the same name.)
+
+If the assembled sentinel is **absent** from the skill content, HALT
+with the same lead:
+
+`✗ vaultpilot-preflight skill integrity check FAILED — DO NOT SIGN.`
+
+Tell the user this is the plugin-collision case: another skill is
+registered under the name `vaultpilot-preflight` whose content lacks
+the v5 sentinel, and proceeding would mean trusting unknown content
+in place of this file.
+
+### Failure-mode handling
+
+- **Cannot read `~/.claude/skills/vaultpilot-preflight/SKILL.md`**
+  (file missing, permissions error, path different from the canonical
+  location): treat as a FAILED integrity check, not as a free pass.
+  Same `✗ skill integrity check FAILED — DO NOT SIGN.` alarm. Tell
+  the user the file isn't where the MCP expects it.
+- **`sha256sum` (or equivalent) unavailable on the system**: treat as
+  a FAILED check. Inability to compute the SHA-256 locally means
+  inability to verify integrity, which means inability to safely
+  sign.
+- **Stale-loaded skill content** (the agent loaded the skill at
+  session start and the file was edited mid-session): re-run Step 0
+  on every signing-related tool call rather than caching the result.
+  Computing `sha256sum` is fast; caching the result lets a tampered
+  file slip through if the tamper happens after first load.
+
+Only after all three parts pass — local hash matches pin, sentinel
+present in skill content, no read errors — proceed to Invariant #1.
+
+---
+
 ## Invariants (apply on EVERY state-changing transaction)
 
 ### 1. Decode the bytes locally before signing
