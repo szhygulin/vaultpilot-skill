@@ -14,6 +14,25 @@ disabled the defense; v0.4.0 makes the defense survive that omission.
 
 - **Bumps integrity sentinel to**
   `VAULTPILOT_PREFLIGHT_INTEGRITY_v5_9c4a2e7f3d816b50`.
+- **Adds Step 0 — Integrity self-check (MANDATORY, runs FIRST).**
+  Closes [#10](https://github.com/szhygulin/vaultpilot-skill/issues/10).
+  The previous `0.1.x`–`0.3.x` skills relied on the MCP-emitted
+  `PREFLIGHT SKILL INTEGRITY PIN` block to instruct the agent to run
+  `sha256sum` and compare against the pin — but the skill itself had no
+  prose making this mandatory. Result: when the local `SKILL.md` had
+  drifted from the MCP-pinned hash, multiple signing flows ran with no
+  alarm surfaced. v0.4.0 adds an explicit Step 0 in this file (placed
+  *before* the numbered invariants) that requires the agent to (a)
+  extract `Expected SHA-256` and the assembled `A+B+C` sentinel from
+  the MCP's pin block, (b) compute `sha256sum
+  ~/.claude/skills/vaultpilot-preflight/SKILL.md` locally and compare,
+  (c) confirm the sentinel is present in the skill content the `Skill`
+  tool returned. Any mismatch — or any inability to complete the check
+  (file missing, hash tool unavailable, MCP omitted the pin block) —
+  halts the signing flow with `✗ vaultpilot-preflight skill integrity
+  check FAILED — DO NOT SIGN.` and surfaces both hashes side-by-side.
+  Re-runs on every signing-related call rather than caching, so mid-
+  session tamper is caught.
 - **Tightens Invariant #2 (hash recompute)** with an explicit `chainId`-
   field assertion in the EIP-1559 RLP. The hash recompute alone does not
   catch a chainId swap (the agent recomputes from the same tampered
