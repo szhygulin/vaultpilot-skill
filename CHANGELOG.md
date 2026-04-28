@@ -4,6 +4,105 @@ All notable changes to the `vaultpilot-preflight` skill are documented here.
 The skill is versioned separately from `vaultpilot-mcp` so an MCP compromise
 cannot silently alter the skill's content.
 
+## 0.6.0 — Adversarial smoke-test batch (Inv #1.a, #1b, #2b, #2.5, #6b, #8 hardening, #12.5, #14, #15, #16)
+
+Single coordinated release covering 7 of 8 sub-issues from the 2026-04-28
+adversarial smoke-test cluster ([vaultpilot-mcp#456](https://github.com/szhygulin/vaultpilot-mcp/issues/456)).
+The 8th (Tier-2 bridge facet decoders) is deferred to a follow-up release
+per the README roadmap.
+
+**Inv #1.a — Outer dispatch-target allowlist.** Closes
+[vaultpilot-mcp#461](https://github.com/szhygulin/vaultpilot-mcp/issues/461).
+Adds a per-(chain, action) canonical-contract table (~30 addresses across
+Ethereum / Arbitrum / Polygon / Base / Optimism). Mismatch on outer EIP-1559
+`to` → `✗ DISPATCH-TARGET MISMATCH`. Sourced from `src/config/contracts.ts`
+in the MCP, mirrored here as the agent-side ground truth.
+
+**Inv #1b — Typed-data tree decode (forward-looking).** Closes one half of
+[vaultpilot-mcp#453](https://github.com/szhygulin/vaultpilot-mcp/issues/453).
+Forward-looking rule for when typed-data signing surface ships:
+field-level decode, address-typed-field surfacing, deadline flagging,
+verifyingContract pinning, approval-class treatment for `Permit*` /
+`Order` primary types.
+
+**Inv #2b — Typed-data digest recompute (forward-looking).** Pairs with #1b.
+Recompute `keccak256("\x19\x01" || domainSeparator || hashStruct(message))`
+via viem's `hashTypedData`, match server-reported digest. Same corroborating-
+not-load-bearing framing as #2 — the load-bearing layer is #1b's
+field-level decode.
+
+**Inv #2.5 — Chain-must-be-explicit refusal precondition.** Closes
+[vaultpilot-mcp#452](https://github.com/szhygulin/vaultpilot-mcp/issues/452).
+Refuse `prepare_*` / `preview_send` until the user has named exactly one
+chain by canonical name. Robust to phrase paraphrase. Companion MCP-side
+`CONTACT-CHAIN MISMATCH` warning when a `preview_send` recipient resolves
+to a contact saved on a different chain.
+
+**Inv #6b — Tier-1 facet decoder.** Closes
+[vaultpilot-mcp#451](https://github.com/szhygulin/vaultpilot-mcp/issues/451)
+(Tier-1 only; Tier-2 deferred to roadmap). After Inv #6 strict-pair passes,
+decode the per-bridge facet and assert
+`decodedFinalRecipient == userSuppliedRecipient`. Tier-1 bridges:
+Wormhole TokenBridge, Mayan, NEAR Intents, Across V3.
+
+**Inv #8 hardening — byte-fingerprint + drainer-template refusal.**
+Closes [vaultpilot-mcp#454](https://github.com/szhygulin/vaultpilot-mcp/issues/454).
+Three additions to `sign_message_btc` / `sign_message_ltc`:
+SHA-256 fingerprint preview alongside verbatim string; refuse on drainer
+template phrases (`I authorize`, `Granting full custody`, `I consent to`)
+or embedded non-contact addresses; rationale for why marker-word strict
+refusal is NOT the rule.
+
+**Inv #12.5 — Hard-trigger ops list.** New sub-block in §12 making the
+second-LLM check non-optional for: 7702 setCode, Permit2 batch with
+multi-month expirations, LiFi Tier-2 bridges, multi-row revoke,
+`prepare_safe_tx_*` with `enableModule` / `delegateCall: true`, and any
+signing flow targeting an address outside Inv #1.a + saved contacts.
+
+**Inv #14 — Set-level intent verification.** Closes
+[vaultpilot-mcp#450](https://github.com/szhygulin/vaultpilot-mcp/issues/450).
+Mandates verbatim enumeration from `get_token_allowances`; user (not agent)
+picks the row to revoke. Inv #12.5 hard-trigger applies. CHECKS PERFORMED
+includes `{✓} SET-LEVEL ENUMERATION` with row count + selection. Companion
+MCP-side `[SET-LEVEL ENUMERATION]` block on `get_token_allowances`;
+missing block is an Invariant #4 compromise signal.
+
+**Inv #15 — Durable-binding source-of-truth verification.** Closes
+[vaultpilot-mcp#460](https://github.com/szhygulin/vaultpilot-mcp/issues/460).
+For ops binding funds to a durable on-chain object selected from a
+multi-candidate set: source the candidate identifier from a non-MCP
+authority, surface verbatim with provenance, byte-equality-check in the
+prepared bytes. Hardcoded source-of-truth for unambiguous classes (LP NFT
+`ownerOf`, BTC xpub paste, Solana ATA derivation, Compound Comet / Morpho
+via Inv #1.a); generic "use a non-MCP authority" rule for multi-equivalent
+classes (Solana validators, TRON SRs).
+
+**Inv #16 — EIP-7702 setCode refused unconditionally (forward-looking).**
+Closes one half of [vaultpilot-mcp#455](https://github.com/szhygulin/vaultpilot-mcp/issues/455).
+Until skill v9 ships an implementation allowlist (paired with the MCP-side
+`prepare_eip7702_authorization` build), 7702 setCode is REFUSED
+UNCONDITIONALLY. v9 will introduce the literal-address allowlist with
+addresses verified at probe time; the MCP feature lands in lockstep.
+
+**Numbering note.** Skill v6 took §13 for "Multi-step BTC flows." The
+adversarial-smoke tracker's tentative "Inv #13 — set-level" and "Inv #14 —
+durable-binding" map to §14 and §15 here (shifted +1 to avoid renumbering
+shipped sections). The tracker text in vaultpilot-mcp#456 is updated
+post-merge.
+
+- **Bumps integrity sentinel to**
+  `VAULTPILOT_PREFLIGHT_INTEGRITY_v8_4aac027a9df315a9`.
+- New SKILL.md SHA-256:
+  `01d8d68d03a3c34a832e2c2595c92f666776cbe895341940c08f3c3563101414`.
+- **Requires `vaultpilot-mcp` ≥ 0.11.x with the matching pin bump.**
+  Coordinated MCP-side PR updates `EXPECTED_SKILL_SHA256` AND
+  `EXPECTED_SKILL_SENTINEL_B` (`_v7_` → `_v8_`) AND
+  `EXPECTED_SKILL_SENTINEL_C` (`8e252312c08c415b` →
+  `4aac027a9df315a9`). Until both ship, signing flows halt with
+  `vaultpilot-preflight skill integrity check FAILED`. The MCP PR also
+  bundles the SET-LEVEL ENUMERATION block, CONTACT-CHAIN MISMATCH warning,
+  and Inv #1.a prepare-time enforcement.
+
 ## 0.5.1 — Invariant #2 framing: corroborating, not load-bearing
 
 Documentation-only addition to §Invariant 2. Names the threat-model
