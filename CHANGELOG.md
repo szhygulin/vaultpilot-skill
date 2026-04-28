@@ -4,6 +4,20 @@ All notable changes to the `vaultpilot-preflight` skill are documented here.
 The skill is versioned separately from `vaultpilot-mcp` so an MCP compromise
 cannot silently alter the skill's content.
 
+## 0.8.0 — Read-only data integrity rules (cooperating-agent guidance)
+
+Adds a "Read-only data integrity (cooperating-agent guidance)" section between Advisory hygiene and CHECKS PERFORMED template. Covers `get_portfolio_summary` / `get_transaction_history` / `compare_yields` / `get_pnl_summary` returns:
+
+- (A) Mandatory disclaimer for high-stakes read-only data (portfolio > \$10k, tax-context PnL, compare_yields rows about to be allocated against).
+- (B) Sanity checks: sum-equals-breakdown, APY plausibility thresholds, unrecognized protocol slug warnings, suspicious naming patterns, tax-context PnL stronger note.
+- (C) Explicit honest scope label: skill rules bind cooperating agents; do NOT cryptographically verify responses; do NOT detect plausible fabrications; do NOT defend against rogue agents.
+
+Closes [vaultpilot-mcp#537](https://github.com/szhygulin/vaultpilot-mcp/issues/537) and [vaultpilot-mcp#542](https://github.com/szhygulin/vaultpilot-mcp/issues/542) as part of B.3 (unrecognized protocol slugs).
+
+Server-signed response envelopes (Ed25519 / Merkle) are the long-term architectural defense; tracked at #537. Hosted MCP TEE-signed path tracked at vaultpilot-mcp-hosted#25.
+
+Sentinel: `v9_8b2c1d6e5f7a9301` → `v10_3f4d8e2a6c9b1057`. MCP-side `EXPECTED_SKILL_SHA256` bump ships in the coordinated PR pair.
+
 ## 0.7.0 — Advisory hygiene rules for cooperating agents
 
 Adds an "Advisory hygiene (cooperating-agent guidance)" section between the Invariants block and the CHECKS PERFORMED template. Four rule groups: hardware-wallet vendor URL allowlist (`ledger.com` / `trezor.io` only), categorical refusal of seed-handling anti-patterns (cloud backup / recovery services / sharing-with-support / pre-configured devices), trigger-phrase scan for re-checking advisory text, and dont-represent-third-party-seed-handling-as-VaultPilot-sanctioned.
