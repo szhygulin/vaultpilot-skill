@@ -4,6 +4,37 @@ All notable changes to the `vaultpilot-preflight` skill are documented here.
 The skill is versioned separately from `vaultpilot-mcp` so an MCP compromise
 cannot silently alter the skill's content.
 
+## 0.5.0 — Invariant #13: Multi-step BTC flows
+
+Adds a new invariant covering multi-step BTC prepare flows where
+Invariant #1 (decode the bytes locally before signing) must run at
+EVERY step that returns bytes — not only the first. The bytes-to-sign
+at step N+1 may be a faithful merge of tampered bytes from step N;
+without a per-step assertion, tamper at step N propagates silently.
+
+Closes [vaultpilot-mcp#463](https://github.com/szhygulin/vaultpilot-mcp/issues/463).
+Surfaced by adversarial smoke-test scripts b099 (multisig combine) and
+b109 (RBF bump) on 2026-04-28.
+
+- **`combine_btc_psbts`** — re-decode `output[]` of the merged PSBT
+  and assert byte-equality with the per-input prepared PSBT outputs.
+  Combine merges signatures, not outputs; output divergence is tamper.
+- **`prepare_btc_rbf_bump`** — fetch the original txid's outputs via
+  `get_btc_tx_history` BEFORE calling the bump. Pin those outputs as
+  a temporal trust-anchor; the bumped PSBT's outputs must differ only
+  by smaller change-output (fee diff). Recipient script(s) and
+  amount(s) byte-identical.
+- **Bumps integrity sentinel to**
+  `VAULTPILOT_PREFLIGHT_INTEGRITY_v6_8682084ac4984982`.
+- New SKILL.md SHA-256:
+  `83195093d98367ad8000164caa396e855a213d9de64018ba148d03be566772df`.
+- **Requires `vaultpilot-mcp` ≥ 0.11.x with the matching pin bump.**
+  Coordinated MCP-side PR updates `EXPECTED_SKILL_SHA256` AND
+  `EXPECTED_SKILL_SENTINEL_B` (`_v5_` → `_v6_`) AND
+  `EXPECTED_SKILL_SENTINEL_C` (`9c4a2e7f3d816b50` →
+  `8682084ac4984982`). Until both ship, signing flows halt with
+  `vaultpilot-preflight skill integrity check FAILED`.
+
 ## 0.4.1 — rename repo: `vaultpilot-skill` → `vaultpilot-security-skill`
 
 GitHub repository renamed for clarity. GitHub provides automatic
