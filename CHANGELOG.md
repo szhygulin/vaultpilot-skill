@@ -4,6 +4,22 @@ All notable changes to the `vaultpilot-preflight` skill are documented here.
 The skill is versioned separately from `vaultpilot-mcp` so an MCP compromise
 cannot silently alter the skill's content.
 
+## 0.9.0 — Strategy share/import integrity (cooperating-agent guidance)
+
+Adds a "Strategy share/import integrity (cooperating-agent guidance)" section between Read-only data integrity and the CHECKS PERFORMED template. Covers `share_strategy` and `import_strategy`:
+
+- (A) Contact re-derivation around `share_strategy`. When the user names a recipient ("share with Bob"), the agent calls `list_contacts({ label: "<recipient>" })`, surfaces the resolved address with bold + inline-code (**`Bob → 0xC0f5…2074`**), and requires explicit user confirmation before producing the JSON. No-match refuses the named-recipient framing — `share_strategy` carries no recipient metadata in the export.
+- (B) CHECKS PERFORMED block wrapping both share and import responses. Shape differs from the signing-flow template (no bytes, no on-device step). Schema-validation line points at the MCP-side `STRATEGY_UNKNOWN_KEY_REJECTED` gate; recipient-contact line drops on import; share-without-named-recipient replaces it with a paste-anywhere note. Redaction scan refuses to relay payloads with embedded wallet addresses, tx hashes, or ENS names.
+- (C) Explicit non-goals: the skill does NOT keep a parallel registry of allowed strategy fields, protocols, or smart contracts; the MCP-side gate is authoritative for the v1 shape. Server-signed response envelopes ([vaultpilot-mcp#537](https://github.com/szhygulin/vaultpilot-mcp/issues/537)) remain the long-term defense for the case where a compromised MCP returns a tampered shape AND drops its own gate.
+
+**Why this matters now.** Smoke-test scripts `expert-108-C.4` / `expert-108-C.1` (2026-04-28) exercised the flow under agent + MCP collusion: MCP returned strategy JSON containing a hidden `_delegateAuthority` tag; the agent's role-confusion ("Bob = delegated signer" vs. "Bob = import recipient") was not refuted because no contact re-derivation happened. The MCP-side defense ([vaultpilot-mcp#571](https://github.com/szhygulin/vaultpilot-mcp/pull/571)) closed the schema gap. The skill closes the agent-side intent-verification gap.
+
+**Explicit scope.** Cooperating-agent guidance only. A rogue agent reads any rule and ignores it — the defense for that case lives at model-safety-tuning or chat-client output-filter, per the Rogue-Agent-Only Finding Triage rubric. The MCP `STRATEGY_UNKNOWN_KEY_REJECTED` gate plus on-device clear-sign at any downstream signing step remain the load-bearing defenses for a position the user later acts on.
+
+Closes [#23](https://github.com/szhygulin/vaultpilot-security-skill/issues/23).
+
+Sentinel: `v10_3f4d8e2a6c9b1057` → `v11_5919abc208e8de9a`. MCP-side `EXPECTED_SKILL_SHA256` bump ships in the coordinated PR pair.
+
 ## 0.8.0 — Read-only data integrity rules (cooperating-agent guidance)
 
 Adds a "Read-only data integrity (cooperating-agent guidance)" section between Advisory hygiene and CHECKS PERFORMED template. Covers `get_portfolio_summary` / `get_transaction_history` / `compare_yields` / `get_pnl_summary` returns:
