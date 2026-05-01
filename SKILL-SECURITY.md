@@ -77,9 +77,9 @@ is the cross-component view.
 | **#15 — Durable-binding source-of-truth** | Selection-layer attacks (smoke-test b040 / b044 / b053 / b055 / b059 / b060 / b063 / b098): 100%-commission Solana validator, brand-spoofed TRON SR, wrong Comet routing, Morpho Blue with adversarial oracle/IRM/LLTV, lookalike MarginFi bank, hijacked Solana ATA, attacker-owned LP `tokenId`, attacker xpub in BTC multisig. Bytes-level invariants pass — fraud is in *which durable object* the bytes reference. | Skill mandates a non-MCP authority but cannot mechanically verify the agent used one. Hardcoded mechanical rule for unambiguous classes (LP `ownerOf`, BTC xpub paste, Solana ATA derivation, Compound + Morpho via #1.a); generic "non-MCP authority" rule for multi-equivalent classes (validators, SRs). |
 | **#16 — EIP-7702 setCode refused unconditionally (forward-looking)** | 7702 `setCode` delegates the EOA's code to an attacker contract — the most expansive blast radius in EVM. | Forward-looking — MCP today does not expose a 7702 surface; tool absence is the load-bearing defense. Skill v9 will introduce a literal-address allowlist with addresses verified at probe time; until then, refused unconditionally. Tracked at [#481](https://github.com/szhygulin/vaultpilot-mcp/issues/481). |
 
-## Cooperating-agent guidance (v0.7.0 + v0.8.0 + v0.9.0)
+## Cooperating-agent guidance (v0.7.0 + v0.8.0 + v0.9.0 + v0.10.0)
 
-Three sections in `SKILL.md` carry rules that bind a *cooperating* agent —
+Four sections in `SKILL.md` carry rules that bind a *cooperating* agent —
 they are explicitly **not** defenses against a rogue agent. All share the
 same honest-scope framing: rules in agent-context text are read and ignored
 by a hostile agent by definition, so these rule groups catch honest-but-
@@ -124,6 +124,24 @@ chat-client output-filter layer, neither of which a skill can provide.
   ([vaultpilot-mcp#571](https://github.com/szhygulin/vaultpilot-mcp/pull/571)),
   not duplicated as a skill-side field whitelist — the skill keeps no
   registry of allowed strategy fields, protocols, or smart contracts.
+- **v0.10.0 — Cryptographic constant verification.** Specializes the
+  `rnd` skill's "name the source before you name the fact" principle
+  for cryptographic constants. The agent must verify every
+  cryptographic constant via independent computation (`cast keccak`,
+  viem `keccak256`, Python `eth_utils.keccak`) or canonical-source
+  cross-check (OpenZeppelin source, EIP text, Etherscan "Read
+  Contract", vendor-published registry) BEFORE passing it into a tool
+  call — never sourced verbatim from another tool's description.
+  Covers AccessControl role hashes, function selectors, EIP-712 type
+  hashes, canonical contract addresses, and bytecode / source-pin
+  SHA-256s. Closes the buggy-MCP-typo failure mode that a 2026-04-29
+  `vaultpilot-mcp` session hit (a wrong `EXECUTOR_ROLE` hash in
+  `read_contract`'s docstring made every `hasRole` return `false`,
+  costing ~3 turns of false-negative narration before the user spotted
+  it via Etherscan), and also defends the rogue-MCP variant where a
+  near-correct hash is shipped intentionally to mislead role /
+  permission checks. Typo fix tracked at
+  [vaultpilot-mcp#608](https://github.com/szhygulin/vaultpilot-mcp/issues/608).
 
 ## Adversarial smoke-test (2026-04-28) — what changed
 

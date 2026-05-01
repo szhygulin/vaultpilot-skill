@@ -4,6 +4,20 @@ All notable changes to the `vaultpilot-preflight` skill are documented here.
 The skill is versioned separately from `vaultpilot-mcp` so an MCP compromise
 cannot silently alter the skill's content.
 
+## 0.10.0 — Cryptographic constant verification (cooperating-agent guidance)
+
+Adds a "Cryptographic constant verification (cooperating-agent guidance)" section between Strategy share/import integrity and the CHECKS PERFORMED template. Specializes the `rnd` skill's "name the source before you name the fact" principle for cryptographic constants — the agent must verify every cryptographic constant via independent computation (`cast keccak`, viem `keccak256`, Python `eth_utils.keccak`) or canonical-source cross-check (OpenZeppelin source, EIP text, Etherscan "Read Contract", vendor-published registry) BEFORE passing it into a tool call. Tool descriptions are illustrative; they can carry typos and they can be tampered with by a compromised MCP.
+
+Covers AccessControl role hashes, function selectors, EIP-712 type hashes, canonical contract addresses (Permit2, USDC permit domain, CowSwap settlement), and bytecode / source-pin SHA-256s. Tells the constant is wrong: uniform `false` on `hasRole(role, address)` across every plausible address (signature of a wrong role hash, not an empty role); EIP-712 digest mismatch beyond implementation-rounding (which is zero); failed `verifyingContract` lookup; "off by a few bytes" pattern in a hash already half-recognized.
+
+**Why this matters now.** A `vaultpilot-mcp` session on 2026-04-29 returned bogus role-check results because the agent copied a `keccak256("EXECUTOR_ROLE")` example from `read_contract`'s docstring; the docstring carried `0xd8aa…9482` while the correct value is `0xd8aa…9e63`. Every `hasRole(EXECUTOR_ROLE, …)` returned `false`; the agent concluded the executor role-holder was external to the user's address book; the user confirmed via Etherscan Read Contract that the legitimate Safe DID hold the role. Typo fix tracked at [vaultpilot-mcp#608](https://github.com/szhygulin/vaultpilot-mcp/issues/608); the broader rule here also covers the rogue-MCP variant where a near-correct hash is shipped intentionally.
+
+**Explicit scope.** Cooperating-agent guidance only. Defends honest-agent + buggy-MCP and honest-agent + rogue-MCP-emitting-near-correct-constants. Does NOT defend rogue-agent + any-MCP — that's the architectural gap the Rogue-Agent-Only Finding Triage rubric covers.
+
+Closes [#25](https://github.com/szhygulin/vaultpilot-security-skill/issues/25).
+
+Sentinel: `v11_5919abc208e8de9a` → `v12_a4d5a75453658f63`. MCP-side `EXPECTED_SKILL_SHA256` bump ships in the coordinated PR pair.
+
 ## 0.9.0 — Strategy share/import integrity (cooperating-agent guidance)
 
 Adds a "Strategy share/import integrity (cooperating-agent guidance)" section between Read-only data integrity and the CHECKS PERFORMED template. Covers `share_strategy` and `import_strategy`:
