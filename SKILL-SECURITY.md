@@ -77,10 +77,10 @@ is the cross-component view.
 | **#15 — Durable-binding source-of-truth** | Selection-layer attacks (smoke-test b040 / b044 / b053 / b055 / b059 / b060 / b063 / b098): 100%-commission Solana validator, brand-spoofed TRON SR, wrong Comet routing, Morpho Blue with adversarial oracle/IRM/LLTV, lookalike MarginFi bank, hijacked Solana ATA, attacker-owned LP `tokenId`, attacker xpub in BTC multisig. Bytes-level invariants pass — fraud is in *which durable object* the bytes reference. | Skill mandates a non-MCP authority but cannot mechanically verify the agent used one. Hardcoded mechanical rule for unambiguous classes (LP `ownerOf`, BTC xpub paste, Solana ATA derivation, Compound + Morpho via #1.a); generic "non-MCP authority" rule for multi-equivalent classes (validators, SRs). |
 | **#16 — EIP-7702 setCode refused unconditionally (forward-looking)** | 7702 `setCode` delegates the EOA's code to an attacker contract — the most expansive blast radius in EVM. | Forward-looking — MCP today does not expose a 7702 surface; tool absence is the load-bearing defense. Skill v9 will introduce a literal-address allowlist with addresses verified at probe time; until then, refused unconditionally. Tracked at [#481](https://github.com/szhygulin/vaultpilot-mcp/issues/481). |
 
-## Cooperating-agent guidance (v0.7.0 + v0.8.0)
+## Cooperating-agent guidance (v0.7.0 + v0.8.0 + v0.9.0)
 
-Two sections in `SKILL.md` carry rules that bind a *cooperating* agent —
-they are explicitly **not** defenses against a rogue agent. Both share the
+Three sections in `SKILL.md` carry rules that bind a *cooperating* agent —
+they are explicitly **not** defenses against a rogue agent. All share the
 same honest-scope framing: rules in agent-context text are read and ignored
 by a hostile agent by definition, so these rule groups catch honest-but-
 uninformed advice but do not raise the bar against the smoke-test threat
@@ -107,6 +107,23 @@ chat-client output-filter layer, neither of which a skill can provide.
   Merkle), tracked at #537; for hosted MCP, TEE-signed responses tracked
   at vaultpilot-mcp-hosted#25. Until those land, read-only data flows
   inherit the same trust floor as the MCP itself.
+- **v0.9.0 — Strategy share/import integrity.** Contact re-derivation
+  around `share_strategy` (call `list_contacts` for the named recipient,
+  surface the resolved address with bold + inline-code, refuse on no-match),
+  CHECKS PERFORMED block on share + import (with redaction scan for
+  embedded wallet addresses / tx hashes / ENS names that would signal a
+  tampered shape past the MCP gate), import-path drops the recipient
+  line, share-without-recipient surfaces a paste-anywhere note. Closes
+  the agent-side intent-verification gap that smoke-test scripts
+  `expert-108-C.4` / `expert-108-C.1` exercised — MCP returned strategy
+  JSON with a hidden `_delegateAuthority` tag; agent's role-confusion
+  ("Bob = delegated signer" vs. "Bob = import recipient") was not
+  refuted because no contact re-derivation happened. Bytes-level
+  defense for tampered strategy shapes lives in the MCP's
+  `STRATEGY_UNKNOWN_KEY_REJECTED` gate
+  ([vaultpilot-mcp#571](https://github.com/szhygulin/vaultpilot-mcp/pull/571)),
+  not duplicated as a skill-side field whitelist — the skill keeps no
+  registry of allowed strategy fields, protocols, or smart contracts.
 
 ## Adversarial smoke-test (2026-04-28) — what changed
 
