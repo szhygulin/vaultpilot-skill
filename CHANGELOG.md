@@ -4,6 +4,23 @@ All notable changes to the `vaultpilot-preflight` skill are documented here.
 The skill is versioned separately from `vaultpilot-mcp` so an MCP compromise
 cannot silently alter the skill's content.
 
+## 0.9.0 — Inv #11 expansion: skill-side approve-spender allowlist + ⚠ NON-CANONICAL SPENDER advisory
+
+Adds a per-chain approve-spender allowlist (Aave V3 Pool, Compound v3 Comets, Morpho Blue, Lido Withdrawal Queue, EigenLayer StrategyManager, Uniswap V3 SwapRouter02 + NPM, Curve stETH/ETH pool, LiFi Diamond — Ethereum / Arbitrum / Polygon / Base / Optimism) directly under §11. After the existing decode surfaces `spender` and `amount`:
+
+- **Match** → existing surfacing applies; spender line gains `(verified: <Label>)`.
+- **No match** → emit `⚠ NON-CANONICAL SPENDER` line with verbatim instruction to read the on-device spender character-by-character before approving, since the on-device clear-sign is the load-bearing verification once the MCP-side curation is bypassed.
+
+**Why this matters now.** [vaultpilot-mcp#618](https://github.com/szhygulin/vaultpilot-mcp/pull/618) (closes [vaultpilot-mcp#617](https://github.com/szhygulin/vaultpilot-mcp/issues/617)) softens the server-side approve-allowlist from a hard refusal to an opt-in (`acknowledgeNonAllowlistedSpender: true`) so legitimate flows like `prepare_curve_swap` `steth_to_eth` against the canonical Curve stETH/ETH pool can build an `approve` outside the curated set. A compromised MCP controls all server state — including the ack flag — so the softening removes the curated check on both sides if the skill doesn't carry its own. Mirrors the Inv #6 (LiFi chain IDs) and Inv #1.a (outer dispatch-target) pattern: the skill carries its own copy of the table independent of the MCP, and verifying against BOTH locations catches a single-side tamper.
+
+**Honest scope.** The advisory binds a *cooperating* agent — it raises the bar against rogue MCP under cooperating agent (Role B in [vaultpilot-mcp#536](https://github.com/szhygulin/vaultpilot-mcp/issues/536)). A rogue agent that reads the rule and ignores it is not in scope; that case lives at model-safety-tuning or chat-client output-filter, per the Rogue-Agent-Only Finding Triage rubric in CLAUDE.md. The remaining defense for the rogue-agent case is on-device clear-sign of the approve target plus the user paying attention.
+
+CHECKS PERFORMED template line for §11 updated to call out both the `(verified: <Label>)` append and the `⚠ NON-CANONICAL SPENDER` emit. SKILL-SECURITY.md row #11 updated.
+
+Sentinel: `v10_3f4d8e2a6c9b1057` → `v11_1d11476f19e2a2a9`. MCP-side `EXPECTED_SKILL_SHA256` bump ships in the coordinated PR pair.
+
+Closes [#26](https://github.com/szhygulin/vaultpilot-security-skill/issues/26).
+
 ## 0.8.0 — Read-only data integrity rules (cooperating-agent guidance)
 
 Adds a "Read-only data integrity (cooperating-agent guidance)" section between Advisory hygiene and CHECKS PERFORMED template. Covers `get_portfolio_summary` / `get_transaction_history` / `compare_yields` / `get_pnl_summary` returns:
